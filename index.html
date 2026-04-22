@@ -53,7 +53,12 @@
     .toolbar .field { margin-bottom:0; min-width:180px; flex:1; }
     .sale-employee-box { background:#f8fafc; border:1px dashed #cbd5e1; border-radius:12px; padding:12px; margin-bottom:12px; }
     .danger-note { color:#991b1b; font-weight:700; font-size:13px; }
-    @media (max-width: 980px) { .grid-2, .grid-3, .summary { grid-template-columns: 1fr; } }
+    .cart-box { background:#f8fafc; border:1px solid #dbeafe; border-radius:12px; padding:12px; margin-top:12px; }
+    .cart-row { display:flex; justify-content:space-between; gap:12px; padding:10px 0; border-bottom:1px solid #e5e7eb; }
+    .cart-row:last-child { border-bottom:none; }
+    .cart-total { margin-top:10px; font-weight:700; color:#0f172a; }
+    .muted { color:#64748b; font-size:13px; }
+    @media (max-width: 980px) { .grid-2, .grid-3, .summary { grid-template-columns: 1fr; } .cart-row { flex-direction:column; } }
   </style>
 </head>
 <body>
@@ -106,7 +111,7 @@
     <div id="sellView" class="grid grid-2 hidden" style="margin-top:18px;">
       <div class="card">
         <h2>Registrar venda</h2>
-        <div class="helper">Clique em um livro na lista ao lado para selecionar.</div>
+        <div class="helper">Agora você pode adicionar vários livros na mesma compra e aplicar desconto no total.</div>
         <div id="selectedBook" class="item hidden"></div>
 
         <div class="grid grid-2" style="margin-top:12px;">
@@ -114,15 +119,45 @@
             <label for="saleQty">Quantidade</label>
             <input id="saleQty" type="number" min="1" step="1" value="1" />
           </div>
-          <div class="field" id="salePaymentField">
-            <label for="salePayment">Forma de pagamento</label>
-            <select id="salePayment">
-              <option value="Pix">Pix</option>
-              <option value="Débito">Débito</option>
-              <option value="Crédito">Crédito</option>
-              <option value="Dinheiro">Dinheiro</option>
-            </select>
+          <div class="field">
+            <label>&nbsp;</label>
+            <button id="addToCartBtn" class="btn-primary" type="button">Adicionar à compra</button>
           </div>
+        </div>
+
+        <div class="cart-box">
+          <label>Livros selecionados nesta compra</label>
+          <div id="saleCartList" class="list" style="max-height:240px; margin-top:10px;"></div>
+          <div class="grid grid-3" style="margin-top:12px;">
+            <div class="field">
+              <label for="saleDiscountType">Tipo de desconto</label>
+              <select id="saleDiscountType">
+                <option value="none">Sem desconto</option>
+                <option value="percent">Percentual (%)</option>
+                <option value="fixed">Valor (R$)</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="saleDiscountValue">Desconto</label>
+              <input id="saleDiscountValue" type="number" min="0" step="0.01" value="0" />
+            </div>
+            <div class="field">
+              <label>&nbsp;</label>
+              <button id="clearCartBtn" class="btn-red" type="button">Limpar seleção</button>
+            </div>
+          </div>
+          <div id="saleCartSummary" class="cart-total"></div>
+          <div class="muted">O desconto será aplicado sobre o total dos livros selecionados.</div>
+        </div>
+
+        <div class="field" id="salePaymentField" style="margin-top:12px;">
+          <label for="salePayment">Forma de pagamento</label>
+          <select id="salePayment">
+            <option value="Pix">Pix</option>
+            <option value="Débito">Débito</option>
+            <option value="Crédito">Crédito</option>
+            <option value="Dinheiro">Dinheiro</option>
+          </select>
         </div>
 
         <div id="employeeSaleHint" class="sale-employee-box hidden">Nesta venda para funcionário, o resumo e o relatório vão usar apenas a forma de pagamento do funcionário.</div>
@@ -307,6 +342,7 @@
     let editingBookId = null;
     let selectedBookId = null;
     let selectedSaleId = null;
+    let saleCart = [];
 
     const statusEl = document.getElementById('status');
     const bookNameEl = document.getElementById('bookName');
@@ -330,6 +366,12 @@
     const employeePaymentFieldEl = document.getElementById('employeePaymentField');
     const employeePaymentTypeEl = document.getElementById('employeePaymentType');
     const saleBuyerEl = document.getElementById('saleBuyer');
+    const addToCartBtn = document.getElementById('addToCartBtn');
+    const saleCartListEl = document.getElementById('saleCartList');
+    const saleCartSummaryEl = document.getElementById('saleCartSummary');
+    const saleDiscountTypeEl = document.getElementById('saleDiscountType');
+    const saleDiscountValueEl = document.getElementById('saleDiscountValue');
+    const clearCartBtn = document.getElementById('clearCartBtn');
     const registerSaleBtn = document.getElementById('registerSaleBtn');
     const salesListEl = document.getElementById('salesList');
     const movementSalesListEl = document.getElementById('movementSalesList');
@@ -425,6 +467,103 @@
       return Math.max(0, Number(sale.qty || 0) - getSaleMovedQty(sale.id));
     }
 
+    function getCartItemCount(bookId) {
+      return saleCart.filter(item => item.bookId === bookId).reduce((sum, item) => sum + Number(item.qty || 0), 0);
+    }
+
+    function calculateCartTotals() {
+      const subtotal = saleCart.reduce((sum, item) => sum + Number(item.total || 0), 0);
+      const discountType = saleDiscountTypeEl ? saleDiscountTypeEl.value : 'none';
+      const rawDiscountValue = Number(saleDiscountValueEl ? saleDiscountValueEl.value : 0) || 0;
+      let discount = 0;
+      if (discountType === 'percent') {
+        discount = subtotal * (rawDiscountValue / 100);
+      } else if (discountType === 'fixed') {
+        discount = rawDiscountValue;
+      }
+      discount = Math.max(0, Math.min(discount, subtotal));
+      const total = Math.max(0, subtotal - discount);
+      return { subtotal, discount, total, discountType, discountValue: rawDiscountValue };
+    }
+
+    function clearSaleCart() {
+      saleCart = [];
+      if (saleDiscountTypeEl) saleDiscountTypeEl.value = 'none';
+      if (saleDiscountValueEl) saleDiscountValueEl.value = '0';
+      renderSaleCart();
+      renderSellList();
+      renderSelectedBook();
+    }
+
+    function renderSaleCart() {
+      if (!saleCartListEl || !saleCartSummaryEl) return;
+      if (!saleCart.length) {
+        saleCartListEl.innerHTML = '<div class="empty">Nenhum livro adicionado ainda.</div>';
+      } else {
+        saleCartListEl.innerHTML = saleCart.map((item, index) => [
+          '<div class="item">',
+          '<div class="cart-row">',
+          '<div>',
+          '<strong>' + escapeHtml(item.bookName) + '</strong><br>',
+          '<span class="muted">Quantidade: ' + Number(item.qty || 0) + ' | Unitário: ' + formatCurrency(item.unitPrice || 0) + '</span>',
+          '</div>',
+          '<div style="text-align:right;">',
+          '<strong>' + formatCurrency(item.total || 0) + '</strong><br>',
+          '<button type="button" class="btn-red remove-cart-item-btn" data-index="' + index + '">Remover</button>',
+          '</div>',
+          '</div>',
+          '</div>'
+        ].join('')).join('');
+
+        saleCartListEl.querySelectorAll('.remove-cart-item-btn').forEach(btn => {
+          btn.addEventListener('click', function () {
+            saleCart.splice(Number(btn.dataset.index), 1);
+            renderSaleCart();
+            renderSellList();
+            renderSelectedBook();
+          });
+        });
+      }
+
+      const totals = calculateCartTotals();
+      saleCartSummaryEl.innerHTML = [
+        'Subtotal: ' + formatCurrency(totals.subtotal),
+        '<br>Desconto: ' + formatCurrency(totals.discount),
+        '<br>Total final: ' + formatCurrency(totals.total)
+      ].join('');
+    }
+
+    function addSelectedBookToCart() {
+      const book = books.find(item => item.id === selectedBookId);
+      const qty = parseInt(saleQtyEl.value, 10);
+      if (!book) {
+        alert('Selecione um livro para adicionar.');
+        return;
+      }
+      if (Number.isNaN(qty) || qty <= 0) {
+        alert('Informe uma quantidade válida.');
+        return;
+      }
+      const reservedQty = getCartItemCount(book.id);
+      const availableQty = Number(book.qty || 0) - reservedQty;
+      if (qty > availableQty) {
+        alert('Estoque insuficiente para adicionar essa quantidade.');
+        return;
+      }
+      saleCart.push({
+        bookId: book.id,
+        bookName: book.name,
+        qty,
+        unitPrice: Number(book.price || 0),
+        total: Number(book.price || 0) * qty
+      });
+      saleQtyEl.value = '1';
+      renderSaleCart();
+      renderSellList();
+      renderSelectedBook();
+      setStatus('Livro adicionado à compra.', 'ok');
+    }
+
     function getFilteredSales() {
       const period = reportPeriodEl ? reportPeriodEl.value : 'all';
       const search = salesHistorySearchEl ? salesHistorySearchEl.value.toLowerCase().trim() : '';
@@ -514,13 +653,17 @@
       }
       const qty = Math.max(1, Number(saleQtyEl.value || 1));
       const total = Number(book.price || 0) * qty;
+      const reservedQty = getCartItemCount(book.id);
+      const availableQty = Math.max(0, Number(book.qty || 0) - reservedQty);
       selectedBookEl.classList.remove('hidden');
       selectedBookEl.innerHTML = [
         '<strong>' + escapeHtml(book.name) + '</strong>',
         '<div class="meta">',
         'Preço: ' + formatCurrency(book.price) + '<br>',
         'Quantidade em estoque: ' + Number(book.qty || 0) + '<br>',
-        'Total desta venda: ' + formatCurrency(total),
+        'Já selecionado nesta compra: ' + reservedQty + '<br>',
+        'Disponível para adicionar: ' + availableQty + '<br>',
+        'Total deste item: ' + formatCurrency(total),
         '</div>'
       ].join('');
     }
@@ -641,12 +784,16 @@
       }
       sellListEl.innerHTML = filtered.map(book => {
         const selectedClass = selectedBookId === book.id ? ' selected' : '';
+        const reservedQty = getCartItemCount(book.id);
+        const availableQty = Math.max(0, Number(book.qty || 0) - reservedQty);
         return [
           '<div class="item' + selectedClass + '">',
           '<strong>' + escapeHtml(book.name) + '</strong> ' + stockBadge(Number(book.qty || 0)),
           '<div class="meta">',
           'Valor: ' + formatCurrency(book.price) + '<br>',
-          'Quantidade: ' + Number(book.qty || 0),
+          'Quantidade em estoque: ' + Number(book.qty || 0) + '<br>',
+          'Selecionado nesta compra: ' + reservedQty + '<br>',
+          'Disponível para adicionar: ' + availableQty,
           '</div>',
           '<div class="actions" style="margin-top:10px;">',
           '<button type="button" class="btn-primary sell-select-btn" data-id="' + book.id + '">Selecionar</button>',
@@ -705,6 +852,7 @@
               'Forma do funcionário: ' + escapeHtml(sale.employeePaymentType || ''),
               'Quantidade: ' + Number(sale.qty || 0),
               'Disponível para troca/devolução: ' + availableQty,
+              (sale.discountApplied ? 'Desconto: ' + formatCurrency(sale.discountApplied) + '<br>' : ''),
               'Total: ' + formatCurrency(sale.total),
               escapeHtml(sale.date || '')
             ].join('<br>')
@@ -714,6 +862,7 @@
               (sale.installments ? 'Parcelas: ' + escapeHtml(String(sale.installments)) : ''),
               (sale.buyer ? 'Comprador: ' + escapeHtml(sale.buyer) : ''),
               'Disponível para troca/devolução: ' + availableQty,
+              (sale.discountApplied ? 'Desconto: ' + formatCurrency(sale.discountApplied) + '<br>' : ''),
               'Total: ' + formatCurrency(sale.total),
               escapeHtml(sale.date || '')
             ].filter(Boolean).join('<br>');
@@ -861,6 +1010,7 @@
       renderMovementSalesList();
       renderSelectedBook();
       renderSelectedSale();
+      renderSaleCart();
       renderSalesList();
       renderMovementsList();
       renderSummary();
@@ -893,60 +1043,79 @@
     }
 
     async function handleRegisterSale() {
-      const book = books.find(item => item.id === selectedBookId);
-      const qty = parseInt(saleQtyEl.value, 10);
       const payment = salePaymentEl.value;
       const installments = payment === 'Crédito' ? saleInstallmentsEl.value : '';
       const isEmployeeSale = isEmployeeSaleEl.checked;
       const employeePaymentType = isEmployeeSale ? employeePaymentTypeEl.value : '';
       const buyer = saleBuyerEl.value.trim();
-      if (!book) {
-        alert('Selecione um livro para vender.');
+      if (!saleCart.length) {
+        alert('Adicione pelo menos um livro à compra.');
         return;
       }
-      if (Number.isNaN(qty) || qty <= 0) {
-        alert('Informe uma quantidade válida.');
-        return;
+
+      for (const item of saleCart) {
+        const liveBook = books.find(book => book.id === item.bookId);
+        if (!liveBook || Number(liveBook.qty || 0) < Number(item.qty || 0)) {
+          alert('Estoque insuficiente para o livro: ' + item.bookName);
+          return;
+        }
       }
-      if (Number(book.qty || 0) < qty) {
-        alert('Estoque insuficiente.');
-        return;
-      }
-      const total = Number(book.price || 0) * qty;
-      const confirmMessage = [
-        'Confirmar venda?', '',
-        'Livro: ' + book.name,
-        'Quantidade: ' + qty,
+
+      const totals = calculateCartTotals();
+      const subtotal = totals.subtotal;
+      const total = totals.total;
+      const confirmLines = [
+        'Confirmar venda?',
+        '',
+        ...saleCart.map(item => item.bookName + ' - Qtd: ' + item.qty + ' - Total: ' + formatCurrency(item.total)),
+        '',
+        'Subtotal: ' + formatCurrency(subtotal),
+        'Desconto: ' + formatCurrency(totals.discount),
+        'Total final: ' + formatCurrency(total),
         'Pagamento: ' + payment,
         (payment === 'Crédito' ? 'Parcelas: ' + installments : ''),
         (isEmployeeSale ? 'Venda para funcionário: Sim' : ''),
-        (isEmployeeSale ? 'Pagamento do funcionário: ' + employeePaymentType : ''),
-        'Total: ' + formatCurrency(total)
-      ].filter(Boolean).join('\n');
-      if (!confirm(confirmMessage)) return;
+        (isEmployeeSale ? 'Pagamento do funcionário: ' + employeePaymentType : '')
+      ].filter(Boolean);
+      if (!confirm(confirmLines.join('\n'))) return;
 
       try {
-        await addDoc(collection(db, 'sales'), {
-          bookId: book.id,
-          bookName: book.name,
-          qty,
-          payment,
-          installments,
-          isEmployeeSale,
-          employeePaymentType,
-          effectivePayment: isEmployeeSale ? (employeePaymentType || payment) : payment,
-          buyer,
-          total,
-          date: new Date().toLocaleString('pt-BR'),
-          createdAt: Date.now()
-        });
-        await updateDoc(doc(db, 'books', book.id), { qty: Number(book.qty || 0) - qty });
+        const createdAtBase = Date.now();
+        for (let index = 0; index < saleCart.length; index++) {
+          const item = saleCart[index];
+          const itemDiscount = subtotal > 0 ? (totals.discount * (Number(item.total || 0) / subtotal)) : 0;
+          const finalItemTotal = Math.max(0, Number(item.total || 0) - itemDiscount);
+          await addDoc(collection(db, 'sales'), {
+            bookId: item.bookId,
+            bookName: item.bookName,
+            qty: item.qty,
+            unitPrice: item.unitPrice,
+            originalTotal: item.total,
+            discountApplied: itemDiscount,
+            discountType: totals.discountType,
+            discountValue: totals.discountValue,
+            payment,
+            installments,
+            isEmployeeSale,
+            employeePaymentType,
+            effectivePayment: isEmployeeSale ? (employeePaymentType || payment) : payment,
+            buyer,
+            total: finalItemTotal,
+            date: new Date().toLocaleString('pt-BR'),
+            createdAt: createdAtBase + index,
+            saleGroupId: String(createdAtBase),
+            saleGroupItems: saleCart.length
+          });
+          const liveBook = books.find(book => book.id === item.bookId);
+          await updateDoc(doc(db, 'books', item.bookId), { qty: Number(liveBook.qty || 0) - Number(item.qty || 0) });
+        }
         saleQtyEl.value = '1';
         saleBuyerEl.value = '';
         salePaymentEl.value = 'Pix';
         saleInstallmentsEl.value = '1';
         isEmployeeSaleEl.checked = false;
         employeePaymentTypeEl.value = 'Desconto em folha';
+        clearSaleCart();
         updatePaymentFields();
         await loadData();
         renderAll();
@@ -1100,6 +1269,7 @@
       const totalReturned = filteredMovements
         .filter(movement => movement.type === 'devolucao')
         .reduce((sum, movement) => sum + Number(movement.returnedValue || 0), 0);
+      const totalDiscounts = filteredSales.reduce((sum, sale) => sum + Number(sale.discountApplied || 0), 0);
       const netValue = totalSalesValue - totalReturned;
       const employeeSalesCount = filteredSales.filter(sale => sale.isEmployeeSale).length;
       const exchangeCount = filteredMovements.filter(movement => movement.type === 'troca').length;
@@ -1115,6 +1285,7 @@
       const summaryRows = [
         ['Período aplicado', reportPeriodEl.value === 'all' ? 'Tudo' : reportPeriodEl.options[reportPeriodEl.selectedIndex].text],
         ['Total vendido', formatCurrency(totalSalesValue)],
+        ['Descontos aplicados', formatCurrency(totalDiscounts)],
         ['Valor devolvido', formatCurrency(totalReturned)],
         ['Saldo líquido', formatCurrency(netValue)],
         ['Quantidade de vendas', String(filteredSales.length)],
@@ -1130,6 +1301,8 @@
         String(index + 1),
         sale.bookName || '',
         String(sale.qty || 0),
+        formatCurrency(sale.originalTotal || sale.total || 0),
+        formatCurrency(sale.discountApplied || 0),
         formatCurrency(sale.total || 0),
         getEffectivePayment(sale),
         sale.installments ? `${sale.installments}x` : '',
@@ -1168,7 +1341,7 @@
         </head>
         <body>
           ${buildExportTable('Resumo', ['Campo', 'Valor'], summaryRows)}
-          ${buildExportTable('Vendas', ['Nº', 'Livro', 'Quantidade', 'Valor total', 'Pagamento', 'Parcelas', 'Venda funcionário', 'Pagamento funcionário', 'Comprador', 'Data'], salesRows)}
+          ${buildExportTable('Vendas', ['Nº', 'Livro', 'Quantidade', 'Subtotal item', 'Desconto item', 'Valor final', 'Pagamento', 'Parcelas', 'Venda funcionário', 'Pagamento funcionário', 'Comprador', 'Data'], salesRows)}
           ${buildExportTable('Trocas e Devoluções', ['Nº', 'Tipo', 'Livro original', 'Novo livro', 'Quantidade', 'Valor devolvido', 'Comprador', 'Pagamento original', 'Motivo', 'Data'], movementRows)}
         </body>
         </html>
@@ -1223,6 +1396,10 @@
     sellSearchEl.addEventListener('input', renderSellList);
     movementSearchEl.addEventListener('input', renderMovementSalesList);
     saleQtyEl.addEventListener('input', renderSelectedBook);
+    addToCartBtn.addEventListener('click', addSelectedBookToCart);
+    clearCartBtn.addEventListener('click', clearSaleCart);
+    saleDiscountTypeEl.addEventListener('change', renderSaleCart);
+    saleDiscountValueEl.addEventListener('input', renderSaleCart);
     salePaymentEl.addEventListener('change', updatePaymentFields);
     isEmployeeSaleEl.addEventListener('change', updatePaymentFields);
     movementTypeEl.addEventListener('change', updateMovementFields);
