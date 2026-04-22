@@ -1,0 +1,1257 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Feira do Livro - Sistema</title>
+  <style>
+    * { box-sizing: border-box; font-family: Arial, sans-serif; }
+    body { margin: 0; background: #f5f7fb; color: #1f2937; }
+    .container { max-width: 1500px; margin: 0 auto; padding: 20px; }
+    h1 { margin: 0 0 8px; }
+    .subtitle { color: #64748b; margin-bottom: 16px; }
+    .status { margin-bottom: 18px; padding: 12px 14px; border-radius: 12px; font-size: 14px; font-weight: 700; white-space: pre-wrap; }
+    .ok { background: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46; }
+    .warn { background: #fff7ed; border: 1px solid #fdba74; color: #9a3412; }
+    .error { background: #fef2f2; border: 1px solid #fca5a5; color: #991b1b; }
+    .grid { display: grid; gap: 18px; }
+    .grid-2 { grid-template-columns: 1fr 1fr; }
+    .grid-3 { grid-template-columns: repeat(3, 1fr); }
+    .card { background: white; border-radius: 16px; padding: 18px; box-shadow: 0 2px 12px rgba(0,0,0,.06); }
+    .card h2 { margin-top: 0; margin-bottom: 14px; font-size: 22px; }
+    .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+    .field-inline { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+    label { font-size: 14px; font-weight: 700; }
+    input, select, button, textarea { padding: 12px; border-radius: 10px; border: 1px solid #cbd5e1; font-size: 15px; }
+    textarea { resize: vertical; min-height: 90px; }
+    button { border: none; cursor: pointer; font-weight: 700; }
+    .btn-primary { background: #2563eb; color: white; }
+    .btn-green { background: #16a34a; color: white; }
+    .btn-red { background: #dc2626; color: white; }
+    .btn-gray { background: #64748b; color: white; }
+    .btn-orange { background: #ea580c; color: white; }
+    .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .list { display: grid; gap: 12px; max-height: 540px; overflow: auto; }
+    .item { border: 1px solid #e5e7eb; border-radius: 12px; background: #fafafa; padding: 14px; }
+    .item strong { color: #0f172a; }
+    .meta { color: #475569; font-size: 14px; line-height: 1.55; margin-top: 6px; }
+    .search { width: 100%; margin-bottom: 12px; }
+    .summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+    .summary-box { background: #f8fafc; border: 1px solid #e5e7eb; border-radius: 12px; padding: 14px; }
+    .summary-box span { display: block; color: #64748b; font-size: 13px; margin-bottom: 6px; }
+    .summary-box strong { font-size: 22px; }
+    .selected { border: 2px solid #2563eb; }
+    .hidden { display: none !important; }
+    .badge { display: inline-block; padding: 4px 9px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+    .badge-ok { background: #dcfce7; color: #166534; }
+    .badge-low { background: #fef3c7; color: #92400e; }
+    .badge-out { background: #fee2e2; color: #991b1b; }
+    .helper { background: #eff6ff; border: 1px solid #bfdbfe; color: #1d4ed8; border-radius: 12px; padding: 12px; margin-bottom: 12px; font-size: 14px; font-weight: 700; }
+    .tabs { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:18px; }
+    .empty { color:#64748b; padding:10px 0; }
+    .toolbar { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px; }
+    .toolbar .field { margin-bottom:0; min-width:180px; flex:1; }
+    .sale-employee-box { background:#f8fafc; border:1px dashed #cbd5e1; border-radius:12px; padding:12px; margin-bottom:12px; }
+    .danger-note { color:#991b1b; font-weight:700; font-size:13px; }
+    @media (max-width: 980px) { .grid-2, .grid-3, .summary { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Feira do Livro</h1>
+    <div class="subtitle">Versão simples e funcional com Firebase, agora com troca e devolução.</div>
+    <div id="status" class="status warn">Conectando ao Firebase...</div>
+
+    <div class="tabs">
+      <button id="showRegisterView" type="button" class="btn-primary">Cadastrar livros</button>
+      <button id="showSellView" type="button" class="btn-gray">Vender</button>
+      <button id="showExchangeView" type="button" class="btn-gray">Troca / Devolução</button>
+      <button id="showSummaryView" type="button" class="btn-gray">Resumo</button>
+    </div>
+
+    <div id="registerView" class="grid grid-2">
+      <div class="card">
+        <h2>Cadastro de livros</h2>
+        <div class="field">
+          <label for="bookName">Nome do livro</label>
+          <input id="bookName" type="text" placeholder="Digite o nome do livro" />
+        </div>
+        <div class="grid grid-2">
+          <div class="field">
+            <label for="bookPrice">Valor</label>
+            <input id="bookPrice" type="number" min="0" step="0.01" placeholder="0.00" />
+          </div>
+          <div class="field">
+            <label for="bookQty">Quantidade</label>
+            <input id="bookQty" type="number" min="0" step="1" placeholder="0" />
+          </div>
+        </div>
+        <div class="field">
+          <label for="bookObs">Observação</label>
+          <input id="bookObs" type="text" placeholder="Opcional" />
+        </div>
+        <div class="actions">
+          <button id="saveBookBtn" class="btn-primary" type="button">Salvar livro</button>
+          <button id="cancelEditBtn" class="btn-gray hidden" type="button">Cancelar edição</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Livros cadastrados</h2>
+        <input id="bookSearch" class="search" type="text" placeholder="Pesquisar livro" />
+        <div id="bookList" class="list"></div>
+      </div>
+    </div>
+
+    <div id="sellView" class="grid grid-2 hidden" style="margin-top:18px;">
+      <div class="card">
+        <h2>Registrar venda</h2>
+        <div class="helper">Clique em um livro na lista ao lado para selecionar.</div>
+        <div id="selectedBook" class="item hidden"></div>
+
+        <div class="grid grid-2" style="margin-top:12px;">
+          <div class="field">
+            <label for="saleQty">Quantidade</label>
+            <input id="saleQty" type="number" min="1" step="1" value="1" />
+          </div>
+          <div class="field" id="salePaymentField">
+            <label for="salePayment">Forma de pagamento</label>
+            <select id="salePayment">
+              <option value="Pix">Pix</option>
+              <option value="Débito">Débito</option>
+              <option value="Crédito">Crédito</option>
+              <option value="Dinheiro">Dinheiro</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="employeeSaleHint" class="sale-employee-box hidden">Nesta venda para funcionário, o resumo e o relatório vão usar apenas a forma de pagamento do funcionário.</div>
+
+        <div id="creditInstallmentsField" class="field hidden">
+          <label for="saleInstallments">Quantidade de parcelas</label>
+          <select id="saleInstallments">
+            <option value="1">1x</option><option value="2">2x</option><option value="3">3x</option><option value="4">4x</option>
+            <option value="5">5x</option><option value="6">6x</option><option value="7">7x</option><option value="8">8x</option>
+            <option value="9">9x</option><option value="10">10x</option><option value="11">11x</option><option value="12">12x</option>
+          </select>
+        </div>
+
+        <div class="field-inline">
+          <input id="isEmployeeSale" type="checkbox" />
+          <label for="isEmployeeSale">Venda para funcionário</label>
+        </div>
+
+        <div id="employeePaymentField" class="field hidden">
+          <label for="employeePaymentType">Forma de pagamento do funcionário</label>
+          <select id="employeePaymentType">
+            <option value="Desconto em folha">Desconto em folha</option>
+            <option value="Pix">Pix</option>
+            <option value="Dinheiro">Dinheiro</option>
+            <option value="Débito">Débito</option>
+            <option value="Crédito">Crédito</option>
+            <option value="Outro">Outro</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="saleBuyer">Nome do comprador</label>
+          <input id="saleBuyer" type="text" placeholder="Responsável ou funcionário" />
+        </div>
+
+        <div class="actions">
+          <button id="registerSaleBtn" class="btn-green" type="button">Registrar venda</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Selecionar livro para vender</h2>
+        <input id="sellSearch" class="search" type="text" placeholder="Pesquisar livro para vender" />
+        <div id="sellList" class="list"></div>
+      </div>
+    </div>
+
+    <div id="exchangeView" class="grid grid-2 hidden" style="margin-top:18px;">
+      <div class="card">
+        <h2>Registrar troca ou devolução</h2>
+        <div class="helper">Selecione uma venda já registrada para lançar a troca ou devolução.</div>
+
+        <div class="field">
+          <label for="movementType">Tipo</label>
+          <select id="movementType">
+            <option value="troca">Troca</option>
+            <option value="devolucao">Devolução</option>
+          </select>
+        </div>
+
+        <div id="selectedSale" class="item hidden"></div>
+
+        <div class="field">
+          <label for="movementQty">Quantidade</label>
+          <input id="movementQty" type="number" min="1" step="1" value="1" />
+        </div>
+
+        <div class="field hidden" id="newBookField">
+          <label for="newBookSelect">Livro que vai no lugar</label>
+          <select id="newBookSelect"></select>
+        </div>
+
+        <div class="field">
+          <label for="movementReason">Motivo / observação</label>
+          <textarea id="movementReason" placeholder="Ex.: livro com defeito, troca por outro título, desistência da compra..."></textarea>
+        </div>
+
+        <div class="actions">
+          <button id="registerMovementBtn" class="btn-orange" type="button">Registrar movimentação</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Selecionar venda</h2>
+        <input id="movementSearch" class="search" type="text" placeholder="Pesquisar por livro ou comprador" />
+        <div id="movementSalesList" class="list"></div>
+      </div>
+    </div>
+
+    <div id="summaryViewTop" class="card hidden" style="margin-top:18px;">
+      <h2>Resumo</h2>
+      <div class="summary">
+        <div class="summary-box"><span>Total vendido</span><strong id="sumTotal">R$ 0,00</strong></div>
+        <div class="summary-box"><span>Vendas</span><strong id="sumSales">0</strong></div>
+        <div class="summary-box"><span>Itens vendidos</span><strong id="sumItems">0</strong></div>
+        <div class="summary-box"><span>Livros cadastrados</span><strong id="sumBooks">0</strong></div>
+      </div>
+      <div class="summary" style="margin-top:12px;">
+        <div class="summary-box"><span>Trocas</span><strong id="sumExchanges">0</strong></div>
+        <div class="summary-box"><span>Devoluções</span><strong id="sumReturns">0</strong></div>
+        <div class="summary-box"><span>Valor devolvido</span><strong id="sumReturnedValue">R$ 0,00</strong></div>
+        <div class="summary-box"><span>Saldo líquido</span><strong id="sumNetTotal">R$ 0,00</strong></div>
+      </div>
+      <div class="summary" style="margin-top:12px;">
+        <div class="summary-box"><span>Ticket médio</span><strong id="sumAverageTicket">R$ 0,00</strong></div>
+        <div class="summary-box"><span>Vendas para funcionário</span><strong id="sumEmployeeSales">0</strong></div>
+        <div class="summary-box"><span>Itens movimentados</span><strong id="sumMovedItems">0</strong></div>
+        <div class="summary-box"><span>Livro mais vendido</span><strong id="sumTopBook">-</strong></div>
+      </div>
+    </div>
+
+    <div id="summaryViewBottom" class="grid grid-2 hidden" style="margin-top:18px;">
+      <div class="card">
+        <h2>Totais por pagamento</h2>
+        <div class="summary" style="grid-template-columns:1fr 1fr;">
+          <div class="summary-box"><span>Pix</span><strong id="sumPix">R$ 0,00</strong></div>
+          <div class="summary-box"><span>Débito</span><strong id="sumDebito">R$ 0,00</strong></div>
+          <div class="summary-box"><span>Crédito</span><strong id="sumCredito">R$ 0,00</strong></div>
+          <div class="summary-box"><span>Dinheiro</span><strong id="sumDinheiro">R$ 0,00</strong></div>
+          <div class="summary-box"><span>Desconto em folha</span><strong id="sumFolha">R$ 0,00</strong></div>
+        </div>
+        <div class="actions" style="margin-top:12px;">
+          <button id="exportBtn" class="btn-gray" type="button">Exportar CSV (Excel)</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Histórico de vendas</h2>
+        <div class="toolbar">
+          <div class="field">
+            <label for="reportPeriod">Período</label>
+            <select id="reportPeriod">
+              <option value="all">Tudo</option>
+              <option value="today">Hoje</option>
+              <option value="7">Últimos 7 dias</option>
+              <option value="30">Últimos 30 dias</option>
+              <option value="custom">Período personalizado</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="reportDateStart">Data inicial</label>
+            <input id="reportDateStart" type="date" />
+          </div>
+          <div class="field">
+            <label for="reportDateEnd">Data final</label>
+            <input id="reportDateEnd" type="date" />
+          </div>
+          <div class="field">
+            <label for="salesHistorySearch">Buscar no histórico</label>
+            <input id="salesHistorySearch" type="text" placeholder="Livro, comprador ou pagamento" />
+          </div>
+        </div>
+        <div id="salesList" class="list"></div>
+      </div>
+    </div>
+
+    <div id="summaryViewMovements" class="card hidden" style="margin-top:18px;">
+      <h2>Trocas e devoluções</h2>
+      <div id="movementsList" class="list"></div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js';
+    import { getFirestore, collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy } from 'https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js';
+
+    const firebaseConfig = {
+      apiKey: 'AIzaSyApYfgQ18ZCAoQ5hxokPXOEFSEQgY4lVdE',
+      authDomain: 'festa-literaria.firebaseapp.com',
+      projectId: 'festa-literaria',
+      storageBucket: 'festa-literaria.firebasestorage.app',
+      messagingSenderId: '1017481387889',
+      appId: '1:1017481387889:web:942bdbc542f140c028a0d0'
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    let books = [];
+    let sales = [];
+    let movements = [];
+    let editingBookId = null;
+    let selectedBookId = null;
+    let selectedSaleId = null;
+
+    const statusEl = document.getElementById('status');
+    const bookNameEl = document.getElementById('bookName');
+    const bookPriceEl = document.getElementById('bookPrice');
+    const bookQtyEl = document.getElementById('bookQty');
+    const bookObsEl = document.getElementById('bookObs');
+    const saveBookBtn = document.getElementById('saveBookBtn');
+    const cancelEditBtn = document.getElementById('cancelEditBtn');
+    const bookSearchEl = document.getElementById('bookSearch');
+    const sellSearchEl = document.getElementById('sellSearch');
+    const movementSearchEl = document.getElementById('movementSearch');
+    const bookListEl = document.getElementById('bookList');
+    const sellListEl = document.getElementById('sellList');
+    const selectedBookEl = document.getElementById('selectedBook');
+    const selectedSaleEl = document.getElementById('selectedSale');
+    const saleQtyEl = document.getElementById('saleQty');
+    const salePaymentEl = document.getElementById('salePayment');
+    const saleInstallmentsEl = document.getElementById('saleInstallments');
+    const creditInstallmentsFieldEl = document.getElementById('creditInstallmentsField');
+    const isEmployeeSaleEl = document.getElementById('isEmployeeSale');
+    const employeePaymentFieldEl = document.getElementById('employeePaymentField');
+    const employeePaymentTypeEl = document.getElementById('employeePaymentType');
+    const saleBuyerEl = document.getElementById('saleBuyer');
+    const registerSaleBtn = document.getElementById('registerSaleBtn');
+    const salesListEl = document.getElementById('salesList');
+    const movementSalesListEl = document.getElementById('movementSalesList');
+    const movementsListEl = document.getElementById('movementsList');
+    const salePaymentFieldEl = document.getElementById('salePaymentField');
+    const employeeSaleHintEl = document.getElementById('employeeSaleHint');
+    const reportPeriodEl = document.getElementById('reportPeriod');
+    const reportDateStartEl = document.getElementById('reportDateStart');
+    const reportDateEndEl = document.getElementById('reportDateEnd');
+    const salesHistorySearchEl = document.getElementById('salesHistorySearch');
+    const movementTypeEl = document.getElementById('movementType');
+    const movementQtyEl = document.getElementById('movementQty');
+    const movementReasonEl = document.getElementById('movementReason');
+    const newBookFieldEl = document.getElementById('newBookField');
+    const newBookSelectEl = document.getElementById('newBookSelect');
+    const registerMovementBtn = document.getElementById('registerMovementBtn');
+    const exportBtn = document.getElementById('exportBtn');
+    const showRegisterViewBtn = document.getElementById('showRegisterView');
+    const showSellViewBtn = document.getElementById('showSellView');
+    const showExchangeViewBtn = document.getElementById('showExchangeView');
+    const showSummaryViewBtn = document.getElementById('showSummaryView');
+    const registerViewEl = document.getElementById('registerView');
+    const sellViewEl = document.getElementById('sellView');
+    const exchangeViewEl = document.getElementById('exchangeView');
+    const summaryViewTopEl = document.getElementById('summaryViewTop');
+    const summaryViewBottomEl = document.getElementById('summaryViewBottom');
+    const summaryViewMovementsEl = document.getElementById('summaryViewMovements');
+
+    const sumTotalEl = document.getElementById('sumTotal');
+    const sumSalesEl = document.getElementById('sumSales');
+    const sumItemsEl = document.getElementById('sumItems');
+    const sumBooksEl = document.getElementById('sumBooks');
+    const sumPixEl = document.getElementById('sumPix');
+    const sumDebitoEl = document.getElementById('sumDebito');
+    const sumCreditoEl = document.getElementById('sumCredito');
+    const sumDinheiroEl = document.getElementById('sumDinheiro');
+    const sumFolhaEl = document.getElementById('sumFolha');
+    const sumExchangesEl = document.getElementById('sumExchanges');
+    const sumReturnsEl = document.getElementById('sumReturns');
+    const sumReturnedValueEl = document.getElementById('sumReturnedValue');
+    const sumNetTotalEl = document.getElementById('sumNetTotal');
+    const sumAverageTicketEl = document.getElementById('sumAverageTicket');
+    const sumEmployeeSalesEl = document.getElementById('sumEmployeeSales');
+    const sumMovedItemsEl = document.getElementById('sumMovedItems');
+    const sumTopBookEl = document.getElementById('sumTopBook');
+
+    function setStatus(message, type = 'warn') {
+      statusEl.textContent = message;
+      statusEl.className = 'status ' + type;
+    }
+
+    function formatCurrency(value) {
+      return Number(value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    }
+
+    function escapeHtml(text) {
+      return String(text ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function stockBadge(qty) {
+      if (qty <= 0) return '<span class="badge badge-out">Sem estoque</span>';
+      if (qty <= 5) return '<span class="badge badge-low">Estoque baixo</span>';
+      return '<span class="badge badge-ok">Disponível</span>';
+    }
+
+    function getEffectivePayment(sale) {
+      if (sale && sale.isEmployeeSale) {
+        return sale.employeePaymentType || sale.payment || '';
+      }
+      return sale ? (sale.payment || '') : '';
+    }
+
+    function parsePtBrDateToTimestamp(dateText) {
+      if (!dateText) return 0;
+      const parts = String(dateText).match(/(\d{2})\/(\d{2})\/(\d{4}),?\s*(\d{2}):(\d{2})(?::(\d{2}))?/);
+      if (!parts) return 0;
+      const [, dd, mm, yyyy, hh, mi, ss] = parts;
+      return new Date(Number(yyyy), Number(mm) - 1, Number(dd), Number(hh), Number(mi), Number(ss || 0)).getTime();
+    }
+
+    function getSaleMovedQty(saleId) {
+      return movements
+        .filter(movement => movement.saleId === saleId && !movement.cancelled)
+        .reduce((sum, movement) => sum + Number(movement.qty || 0), 0);
+    }
+
+    function getSaleAvailableQty(sale) {
+      return Math.max(0, Number(sale.qty || 0) - getSaleMovedQty(sale.id));
+    }
+
+    function getFilteredSales() {
+      const period = reportPeriodEl ? reportPeriodEl.value : 'all';
+      const search = salesHistorySearchEl ? salesHistorySearchEl.value.toLowerCase().trim() : '';
+      const now = new Date();
+      const startInput = reportDateStartEl && reportDateStartEl.value ? new Date(reportDateStartEl.value + 'T00:00:00').getTime() : null;
+      const endInput = reportDateEndEl && reportDateEndEl.value ? new Date(reportDateEndEl.value + 'T23:59:59').getTime() : null;
+      return sales.filter(sale => {
+        const ts = Number(sale.createdAt || parsePtBrDateToTimestamp(sale.date));
+        let withinPeriod = true;
+        if (period === 'today') {
+          const start = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+          const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59).getTime();
+          withinPeriod = ts >= start && ts <= end;
+        } else if (period === '7') {
+          withinPeriod = ts >= now.getTime() - (7 * 24 * 60 * 60 * 1000);
+        } else if (period === '30') {
+          withinPeriod = ts >= now.getTime() - (30 * 24 * 60 * 60 * 1000);
+        } else if (period === 'custom') {
+          withinPeriod = (!startInput || ts >= startInput) && (!endInput || ts <= endInput);
+        }
+        if (!withinPeriod) return false;
+        if (!search) return true;
+        const hay = [sale.bookName, sale.buyer, getEffectivePayment(sale), sale.employeePaymentType, sale.date].join(' ').toLowerCase();
+        return hay.includes(search);
+      });
+    }
+
+    function getFilteredMovements() {
+      const filteredSaleIds = new Set(getFilteredSales().map(sale => sale.id));
+      return movements.filter(movement => filteredSaleIds.has(movement.saleId));
+    }
+
+
+    async function loadData() {
+      const booksSnap = await getDocs(query(collection(db, 'books'), orderBy('name')));
+      books = booksSnap.docs.map(d => Object.assign({ id: d.id }, d.data()));
+
+      const salesSnap = await getDocs(query(collection(db, 'sales'), orderBy('createdAt', 'desc')));
+      sales = salesSnap.docs.map(d => Object.assign({ id: d.id }, d.data()));
+
+      try {
+        const movementsSnap = await getDocs(query(collection(db, 'movements'), orderBy('createdAt', 'desc')));
+        movements = movementsSnap.docs.map(d => Object.assign({ id: d.id }, d.data()));
+      } catch (error) {
+        movements = [];
+      }
+    }
+
+    function clearBookForm() {
+      editingBookId = null;
+      bookNameEl.value = '';
+      bookPriceEl.value = '';
+      bookQtyEl.value = '';
+      bookObsEl.value = '';
+      cancelEditBtn.classList.add('hidden');
+      saveBookBtn.textContent = 'Salvar livro';
+    }
+
+    function updatePaymentFields() {
+      const isEmployee = isEmployeeSaleEl.checked;
+      salePaymentFieldEl.classList.toggle('hidden', isEmployee);
+      employeeSaleHintEl.classList.toggle('hidden', !isEmployee);
+      creditInstallmentsFieldEl.classList.toggle('hidden', isEmployee || salePaymentEl.value !== 'Crédito');
+      employeePaymentFieldEl.classList.toggle('hidden', !isEmployee);
+    }
+
+    function updateMovementFields() {
+      newBookFieldEl.classList.toggle('hidden', movementTypeEl.value !== 'troca');
+      populateNewBookSelect();
+    }
+
+    function populateNewBookSelect() {
+      const currentSale = sales.find(item => item.id === selectedSaleId);
+      const options = books
+        .filter(book => !currentSale || book.id !== currentSale.bookId)
+        .map(book => '<option value="' + book.id + '">' + escapeHtml(book.name) + ' - Estoque: ' + Number(book.qty || 0) + '</option>')
+        .join('');
+      newBookSelectEl.innerHTML = options || '<option value="">Nenhum outro livro disponível</option>';
+    }
+
+    function renderSelectedBook() {
+      const book = books.find(item => item.id === selectedBookId);
+      if (!book) {
+        selectedBookEl.classList.add('hidden');
+        selectedBookEl.innerHTML = '';
+        return;
+      }
+      const qty = Math.max(1, Number(saleQtyEl.value || 1));
+      const total = Number(book.price || 0) * qty;
+      selectedBookEl.classList.remove('hidden');
+      selectedBookEl.innerHTML = [
+        '<strong>' + escapeHtml(book.name) + '</strong>',
+        '<div class="meta">',
+        'Preço: ' + formatCurrency(book.price) + '<br>',
+        'Quantidade em estoque: ' + Number(book.qty || 0) + '<br>',
+        'Total desta venda: ' + formatCurrency(total),
+        '</div>'
+      ].join('');
+    }
+
+    function renderSelectedSale() {
+      const sale = sales.find(item => item.id === selectedSaleId);
+      if (!sale) {
+        selectedSaleEl.classList.add('hidden');
+        selectedSaleEl.innerHTML = '';
+        return;
+      }
+      selectedSaleEl.classList.remove('hidden');
+      selectedSaleEl.innerHTML = [
+        '<strong>' + escapeHtml(sale.bookName) + '</strong>',
+        '<div class="meta">',
+        'Comprador: ' + escapeHtml(sale.buyer || 'Não informado') + '<br>',
+        'Quantidade vendida: ' + Number(sale.qty || 0) + '<br>',
+        'Pagamento: ' + escapeHtml(sale.payment || '') + '<br>',
+        'Total da venda: ' + formatCurrency(sale.total || 0) + '<br>',
+        'Data: ' + escapeHtml(sale.date || ''),
+        '</div>'
+      ].join('');
+      populateNewBookSelect();
+    }
+
+    function attachBookActions() {
+      bookListEl.querySelectorAll('.edit-btn').forEach(btn => {
+        btn.addEventListener('click', function () {
+          const book = books.find(item => item.id === btn.dataset.id);
+          if (!book) return;
+          editingBookId = book.id;
+          bookNameEl.value = book.name || '';
+          bookPriceEl.value = String(book.price || '');
+          bookQtyEl.value = String(book.qty || '');
+          bookObsEl.value = book.obs || '';
+          cancelEditBtn.classList.remove('hidden');
+          saveBookBtn.textContent = 'Atualizar livro';
+          setStatus('Livro carregado para edição.', 'ok');
+        });
+      });
+
+      bookListEl.querySelectorAll('.delete-btn').forEach(btn => {
+        btn.addEventListener('click', async function () {
+          const id = btn.dataset.id;
+          const hasSale = sales.some(sale => sale.bookId === id);
+          if (hasSale) {
+            alert('Este livro já possui venda registrada e não pode ser excluído.');
+            return;
+          }
+          if (!confirm('Deseja excluir este livro?')) return;
+          try {
+            await deleteDoc(doc(db, 'books', id));
+            if (selectedBookId === id) selectedBookId = null;
+            await loadData();
+            renderAll();
+            setStatus('Livro excluído com sucesso.', 'ok');
+          } catch (error) {
+            console.error(error);
+            setStatus('Erro ao excluir livro: ' + (error.message || String(error)), 'error');
+          }
+        });
+      });
+    }
+
+    function attachSellActions() {
+      sellListEl.querySelectorAll('.sell-select-btn').forEach(btn => {
+        btn.addEventListener('click', function () {
+          selectedBookId = btn.dataset.id;
+          renderSellList();
+          renderSelectedBook();
+          setStatus('Livro selecionado para venda.', 'ok');
+        });
+      });
+    }
+
+    function attachMovementActions() {
+      movementSalesListEl.querySelectorAll('.movement-select-btn').forEach(btn => {
+        btn.addEventListener('click', function () {
+          selectedSaleId = btn.dataset.id;
+          renderMovementSalesList();
+          renderSelectedSale();
+          updateMovementFields();
+          setStatus('Venda selecionada para troca/devolução.', 'ok');
+        });
+      });
+    }
+
+    function renderBookList() {
+      const term = bookSearchEl.value.toLowerCase().trim();
+      const filtered = books.filter(book => book.name.toLowerCase().includes(term) || (book.obs || '').toLowerCase().includes(term));
+      if (!filtered.length) {
+        bookListEl.innerHTML = '<div class="empty">Nenhum livro cadastrado.</div>';
+        return;
+      }
+      bookListEl.innerHTML = filtered.map(book => [
+        '<div class="item">',
+        '<strong>' + escapeHtml(book.name) + '</strong> ' + stockBadge(Number(book.qty || 0)),
+        '<div class="meta">',
+        'Valor: ' + formatCurrency(book.price) + '<br>',
+        'Quantidade: ' + Number(book.qty || 0) + '<br>',
+        (book.obs ? 'Obs.: ' + escapeHtml(book.obs) : ''),
+        '</div>',
+        '<div class="actions" style="margin-top:10px;">',
+        '<button type="button" class="btn-primary edit-btn" data-id="' + book.id + '">Editar</button>',
+        '<button type="button" class="btn-red delete-btn" data-id="' + book.id + '">Excluir</button>',
+        '</div>',
+        '</div>'
+      ].join('')).join('');
+      attachBookActions();
+    }
+
+    function renderSellList() {
+      const term = sellSearchEl.value.toLowerCase().trim();
+      const filtered = books.filter(book => book.name.toLowerCase().includes(term) || (book.obs || '').toLowerCase().includes(term));
+      if (!filtered.length) {
+        sellListEl.innerHTML = '<div class="empty">Nenhum livro encontrado.</div>';
+        return;
+      }
+      sellListEl.innerHTML = filtered.map(book => {
+        const selectedClass = selectedBookId === book.id ? ' selected' : '';
+        return [
+          '<div class="item' + selectedClass + '">',
+          '<strong>' + escapeHtml(book.name) + '</strong> ' + stockBadge(Number(book.qty || 0)),
+          '<div class="meta">',
+          'Valor: ' + formatCurrency(book.price) + '<br>',
+          'Quantidade: ' + Number(book.qty || 0),
+          '</div>',
+          '<div class="actions" style="margin-top:10px;">',
+          '<button type="button" class="btn-primary sell-select-btn" data-id="' + book.id + '">Selecionar</button>',
+          '</div>',
+          '</div>'
+        ].join('');
+      }).join('');
+      attachSellActions();
+    }
+
+    function renderMovementSalesList() {
+      const term = movementSearchEl.value.toLowerCase().trim();
+      const filtered = sales.filter(sale => {
+        const availableQty = getSaleAvailableQty(sale);
+        const searchHay = [sale.bookName, sale.buyer || '', getEffectivePayment(sale)].join(' ').toLowerCase();
+        return availableQty > 0 && searchHay.includes(term);
+      });
+      if (!filtered.length) {
+        movementSalesListEl.innerHTML = '<div class="empty">Nenhuma venda disponível para troca ou devolução.</div>';
+        return;
+      }
+      movementSalesListEl.innerHTML = filtered.map(sale => {
+        const selectedClass = selectedSaleId === sale.id ? ' selected' : '';
+        const availableQty = getSaleAvailableQty(sale);
+        return [
+          '<div class="item' + selectedClass + '">',
+          '<strong>' + escapeHtml(sale.bookName) + '</strong>',
+          '<div class="meta">',
+          (sale.buyer ? 'Comprador: ' + escapeHtml(sale.buyer) + '<br>' : ''),
+          'Quantidade vendida: ' + Number(sale.qty || 0) + '<br>',
+          'Disponível para movimentar: ' + availableQty + '<br>',
+          'Pagamento: ' + escapeHtml(getEffectivePayment(sale)) + '<br>',
+          'Data: ' + escapeHtml(sale.date || ''),
+          '</div>',
+          '<div class="actions" style="margin-top:10px;">',
+          '<button type="button" class="btn-primary movement-select-btn" data-id="' + sale.id + '">Selecionar</button>',
+          '</div>',
+          '</div>'
+        ].join('');
+      }).join('');
+      attachMovementActions();
+    }
+
+    function renderSalesList() {
+      const filteredSales = getFilteredSales();
+      if (!filteredSales.length) {
+        salesListEl.innerHTML = '<div class="empty">Nenhuma venda encontrada para o filtro escolhido.</div>';
+        return;
+      }
+      salesListEl.innerHTML = filteredSales.slice(0, 80).map(sale => {
+        const isEmployee = Boolean(sale.isEmployeeSale);
+        const availableQty = getSaleAvailableQty(sale);
+        const metaHtml = isEmployee
+          ? [
+              'Funcionário: ' + escapeHtml(sale.buyer || ''),
+              'Forma do funcionário: ' + escapeHtml(sale.employeePaymentType || ''),
+              'Quantidade: ' + Number(sale.qty || 0),
+              'Disponível para troca/devolução: ' + availableQty,
+              'Total: ' + formatCurrency(sale.total),
+              escapeHtml(sale.date || '')
+            ].join('<br>')
+          : [
+              'Quantidade: ' + Number(sale.qty || 0),
+              'Pagamento: ' + escapeHtml(getEffectivePayment(sale) || ''),
+              (sale.installments ? 'Parcelas: ' + escapeHtml(String(sale.installments)) : ''),
+              (sale.buyer ? 'Comprador: ' + escapeHtml(sale.buyer) : ''),
+              'Disponível para troca/devolução: ' + availableQty,
+              'Total: ' + formatCurrency(sale.total),
+              escapeHtml(sale.date || '')
+            ].filter(Boolean).join('<br>');
+
+        return [
+          '<div class="item">',
+          '<strong>' + escapeHtml(sale.bookName) + '</strong>',
+          '<div class="meta">',
+          metaHtml,
+          '</div>',
+          '<div class="actions" style="margin-top:10px;">',
+          '<button type="button" class="btn-red cancel-sale-btn" data-id="' + sale.id + '">Cancelar venda</button>',
+          '</div>',
+          '</div>'
+        ].join('');
+      }).join('');
+
+      salesListEl.querySelectorAll('.cancel-sale-btn').forEach(btn => {
+        btn.addEventListener('click', async function () {
+          const sale = sales.find(item => item.id === btn.dataset.id);
+          if (!sale) return;
+          const movedQty = getSaleMovedQty(sale.id);
+          if (movedQty > 0) {
+            alert('Essa venda já possui troca/devolução registrada. Cancele primeiro as movimentações ligadas a ela.');
+            return;
+          }
+          if (!confirm('Deseja cancelar esta venda? O estoque do livro será devolvido.')) return;
+          try {
+            const book = books.find(item => item.id === sale.bookId);
+            if (book) {
+              await updateDoc(doc(db, 'books', book.id), { qty: Number(book.qty || 0) + Number(sale.qty || 0) });
+            }
+            await deleteDoc(doc(db, 'sales', sale.id));
+            if (selectedSaleId === sale.id) selectedSaleId = null;
+            await loadData();
+            renderAll();
+            setStatus('Venda cancelada com sucesso.', 'ok');
+          } catch (error) {
+            console.error(error);
+            setStatus('Erro ao cancelar venda: ' + (error.message || String(error)), 'error');
+          }
+        });
+      });
+    }
+
+    function renderMovementsList() {
+      const filteredMovements = getFilteredMovements();
+      if (!filteredMovements.length) {
+        movementsListEl.innerHTML = '<div class="empty">Nenhuma troca ou devolução encontrada para o filtro escolhido.</div>';
+        return;
+      }
+      movementsListEl.innerHTML = filteredMovements.slice(0, 80).map(movement => {
+        const title = movement.type === 'troca' ? 'Troca' : 'Devolução';
+        return [
+          '<div class="item">',
+          '<strong>' + title + ' - ' + escapeHtml(movement.originalBookName || '') + '</strong>',
+          '<div class="meta">',
+          'Comprador: ' + escapeHtml(movement.buyer || 'Não informado') + '<br>',
+          'Quantidade: ' + Number(movement.qty || 0) + '<br>',
+          (movement.type === 'troca' ? 'Novo livro: ' + escapeHtml(movement.newBookName || '') + '<br>' : ''),
+          (movement.type === 'devolucao' ? 'Valor devolvido: ' + formatCurrency(movement.returnedValue || 0) + '<br>' : ''),
+          (movement.reason ? 'Motivo: ' + escapeHtml(movement.reason) + '<br>' : ''),
+          'Data: ' + escapeHtml(movement.date || ''),
+          '</div>',
+          '<div class="actions" style="margin-top:10px;">',
+          '<button type="button" class="btn-red cancel-movement-btn" data-id="' + movement.id + '">Cancelar movimentação</button>',
+          '</div>',
+          '</div>'
+        ].join('');
+      }).join('');
+
+      movementsListEl.querySelectorAll('.cancel-movement-btn').forEach(btn => {
+        btn.addEventListener('click', async function () {
+          const movement = movements.find(item => item.id === btn.dataset.id);
+          if (!movement) return;
+          if (!confirm('Deseja cancelar esta movimentação? O estoque será ajustado novamente.')) return;
+          try {
+            const originalBook = books.find(book => book.id === movement.originalBookId);
+            if (originalBook) {
+              await updateDoc(doc(db, 'books', originalBook.id), { qty: Math.max(0, Number(originalBook.qty || 0) - Number(movement.qty || 0)) });
+            }
+            if (movement.type === 'troca' && movement.newBookId) {
+              const newBook = books.find(book => book.id === movement.newBookId);
+              if (newBook) {
+                await updateDoc(doc(db, 'books', newBook.id), { qty: Number(newBook.qty || 0) + Number(movement.qty || 0) });
+              }
+            }
+            await deleteDoc(doc(db, 'movements', movement.id));
+            await loadData();
+            renderAll();
+            setStatus('Movimentação cancelada com sucesso.', 'ok');
+          } catch (error) {
+            console.error(error);
+            setStatus('Erro ao cancelar movimentação: ' + (error.message || String(error)), 'error');
+          }
+        });
+      });
+    }
+
+    function renderSummary() {
+      const filteredSales = getFilteredSales();
+      const filteredMovements = getFilteredMovements();
+      const total = filteredSales.reduce((sum, sale) => sum + Number(sale.total || 0), 0);
+      const items = filteredSales.reduce((sum, sale) => sum + Number(sale.qty || 0), 0);
+      const exchangeCount = filteredMovements.filter(m => m.type === 'troca').length;
+      const returnCount = filteredMovements.filter(m => m.type === 'devolucao').length;
+      const returnedValue = filteredMovements
+        .filter(m => m.type === 'devolucao')
+        .reduce((sum, m) => sum + Number(m.returnedValue || 0), 0);
+      const movedItems = filteredMovements.reduce((sum, movement) => sum + Number(movement.qty || 0), 0);
+      const employeeSalesCount = filteredSales.filter(sale => Boolean(sale.isEmployeeSale)).length;
+      const averageTicket = filteredSales.length ? total / filteredSales.length : 0;
+      const byPayment = type => filteredSales
+        .filter(sale => getEffectivePayment(sale) === type)
+        .reduce((sum, sale) => sum + Number(sale.total || 0), 0);
+      const bookTotals = filteredSales.reduce((acc, sale) => {
+        const name = sale.bookName || 'Sem nome';
+        acc[name] = (acc[name] || 0) + Number(sale.qty || 0);
+        return acc;
+      }, {});
+      const topBookEntry = Object.entries(bookTotals).sort((a, b) => b[1] - a[1])[0];
+
+      sumTotalEl.textContent = formatCurrency(total);
+      sumSalesEl.textContent = String(filteredSales.length);
+      sumItemsEl.textContent = String(items);
+      sumBooksEl.textContent = String(books.length);
+      sumPixEl.textContent = formatCurrency(byPayment('Pix'));
+      sumDebitoEl.textContent = formatCurrency(byPayment('Débito'));
+      sumCreditoEl.textContent = formatCurrency(byPayment('Crédito'));
+      sumDinheiroEl.textContent = formatCurrency(byPayment('Dinheiro'));
+      sumFolhaEl.textContent = formatCurrency(byPayment('Desconto em folha'));
+      sumExchangesEl.textContent = String(exchangeCount);
+      sumReturnsEl.textContent = String(returnCount);
+      sumReturnedValueEl.textContent = formatCurrency(returnedValue);
+      sumNetTotalEl.textContent = formatCurrency(total - returnedValue);
+      sumAverageTicketEl.textContent = formatCurrency(averageTicket);
+      sumEmployeeSalesEl.textContent = String(employeeSalesCount);
+      sumMovedItemsEl.textContent = String(movedItems);
+      sumTopBookEl.textContent = topBookEntry ? (topBookEntry[0] + ' (' + topBookEntry[1] + ')') : '-';
+    }
+
+    function renderAll() {
+      renderBookList();
+      renderSellList();
+      renderMovementSalesList();
+      renderSelectedBook();
+      renderSelectedSale();
+      renderSalesList();
+      renderMovementsList();
+      renderSummary();
+      updateMovementFields();
+    }
+
+    async function handleSaveBook() {
+      const name = bookNameEl.value.trim();
+      const price = parseFloat(bookPriceEl.value);
+      const qty = parseInt(bookQtyEl.value, 10);
+      const obs = bookObsEl.value.trim();
+      if (!name || Number.isNaN(price) || Number.isNaN(qty) || price < 0 || qty < 0) {
+        alert('Preencha nome, valor e quantidade corretamente.');
+        return;
+      }
+      try {
+        if (editingBookId) {
+          await updateDoc(doc(db, 'books', editingBookId), { name, price, qty, obs });
+        } else {
+          await addDoc(collection(db, 'books'), { name, price, qty, obs });
+        }
+        await loadData();
+        clearBookForm();
+        renderAll();
+        setStatus('Livro salvo com sucesso.', 'ok');
+      } catch (error) {
+        console.error(error);
+        setStatus('Erro ao salvar livro: ' + (error.message || String(error)), 'error');
+      }
+    }
+
+    async function handleRegisterSale() {
+      const book = books.find(item => item.id === selectedBookId);
+      const qty = parseInt(saleQtyEl.value, 10);
+      const payment = salePaymentEl.value;
+      const installments = payment === 'Crédito' ? saleInstallmentsEl.value : '';
+      const isEmployeeSale = isEmployeeSaleEl.checked;
+      const employeePaymentType = isEmployeeSale ? employeePaymentTypeEl.value : '';
+      const buyer = saleBuyerEl.value.trim();
+      if (!book) {
+        alert('Selecione um livro para vender.');
+        return;
+      }
+      if (Number.isNaN(qty) || qty <= 0) {
+        alert('Informe uma quantidade válida.');
+        return;
+      }
+      if (Number(book.qty || 0) < qty) {
+        alert('Estoque insuficiente.');
+        return;
+      }
+      const total = Number(book.price || 0) * qty;
+      const confirmMessage = [
+        'Confirmar venda?', '',
+        'Livro: ' + book.name,
+        'Quantidade: ' + qty,
+        'Pagamento: ' + payment,
+        (payment === 'Crédito' ? 'Parcelas: ' + installments : ''),
+        (isEmployeeSale ? 'Venda para funcionário: Sim' : ''),
+        (isEmployeeSale ? 'Pagamento do funcionário: ' + employeePaymentType : ''),
+        'Total: ' + formatCurrency(total)
+      ].filter(Boolean).join('\n');
+      if (!confirm(confirmMessage)) return;
+
+      try {
+        await addDoc(collection(db, 'sales'), {
+          bookId: book.id,
+          bookName: book.name,
+          qty,
+          payment,
+          installments,
+          isEmployeeSale,
+          employeePaymentType,
+          effectivePayment: isEmployeeSale ? (employeePaymentType || payment) : payment,
+          buyer,
+          total,
+          date: new Date().toLocaleString('pt-BR'),
+          createdAt: Date.now()
+        });
+        await updateDoc(doc(db, 'books', book.id), { qty: Number(book.qty || 0) - qty });
+        saleQtyEl.value = '1';
+        saleBuyerEl.value = '';
+        salePaymentEl.value = 'Pix';
+        saleInstallmentsEl.value = '1';
+        isEmployeeSaleEl.checked = false;
+        employeePaymentTypeEl.value = 'Desconto em folha';
+        updatePaymentFields();
+        await loadData();
+        renderAll();
+        setStatus('Venda registrada com sucesso.', 'ok');
+        alert('Venda registrada com sucesso.');
+      } catch (error) {
+        console.error(error);
+        setStatus('Erro ao registrar venda: ' + (error.message || String(error)), 'error');
+      }
+    }
+
+    async function handleRegisterMovement() {
+      const sale = sales.find(item => item.id === selectedSaleId);
+      const type = movementTypeEl.value;
+      const qty = parseInt(movementQtyEl.value, 10);
+      const reason = movementReasonEl.value.trim();
+
+      if (!sale) {
+        alert('Selecione uma venda.');
+        return;
+      }
+      if (Number.isNaN(qty) || qty <= 0) {
+        alert('Informe uma quantidade válida.');
+        return;
+      }
+      const availableQty = getSaleAvailableQty(sale);
+      if (qty > availableQty) {
+        alert('A quantidade não pode ser maior que a disponível para movimentação.');
+        return;
+      }
+
+      const originalBook = books.find(book => book.id === sale.bookId);
+      if (!originalBook) {
+        alert('Livro original não encontrado.');
+        return;
+      }
+
+      let newBook = null;
+      if (type === 'troca') {
+        newBook = books.find(book => book.id === newBookSelectEl.value);
+        if (!newBook) {
+          alert('Selecione o novo livro da troca.');
+          return;
+        }
+        if (Number(newBook.qty || 0) < qty) {
+          alert('Estoque insuficiente para o novo livro.');
+          return;
+        }
+      }
+
+      const unitPrice = Number(sale.total || 0) / Math.max(1, Number(sale.qty || 1));
+      const returnedValue = type === 'devolucao' ? unitPrice * qty : 0;
+
+      const confirmMessage = [
+        type === 'troca' ? 'Confirmar troca?' : 'Confirmar devolução?',
+        '',
+        'Livro original: ' + sale.bookName,
+        'Quantidade: ' + qty,
+        (type === 'troca' ? 'Novo livro: ' + newBook.name : ''),
+        (type === 'devolucao' ? 'Valor devolvido: ' + formatCurrency(returnedValue) : ''),
+        (reason ? 'Motivo: ' + reason : '')
+      ].filter(Boolean).join('\n');
+
+      if (!confirm(confirmMessage)) return;
+
+      try {
+        await updateDoc(doc(db, 'books', sale.bookId), { qty: Number(originalBook.qty || 0) + qty });
+
+        if (type === 'troca') {
+          await updateDoc(doc(db, 'books', newBook.id), { qty: Number(newBook.qty || 0) - qty });
+        }
+
+        await addDoc(collection(db, 'movements'), {
+          saleId: sale.id,
+          type,
+          originalBookId: sale.bookId,
+          originalBookName: sale.bookName,
+          newBookId: newBook ? newBook.id : '',
+          newBookName: newBook ? newBook.name : '',
+          qty,
+          buyer: sale.buyer || '',
+          returnedValue,
+          reason,
+          originalPayment: getEffectivePayment(sale),
+          originalTotal: sale.total || 0,
+          date: new Date().toLocaleString('pt-BR'),
+          createdAt: Date.now()
+        });
+
+        movementQtyEl.value = '1';
+        movementReasonEl.value = '';
+        selectedSaleId = null;
+        await loadData();
+        renderAll();
+        setStatus((type === 'troca' ? 'Troca' : 'Devolução') + ' registrada com sucesso.', 'ok');
+        alert((type === 'troca' ? 'Troca' : 'Devolução') + ' registrada com sucesso.');
+      } catch (error) {
+        console.error(error);
+        setStatus('Erro ao registrar movimentação: ' + (error.message || String(error)), 'error');
+      }
+    }
+
+    function formatDateForExport(value) {
+      if (!value) return '';
+      const timestamp = parsePtBrDateToTimestamp(value);
+      if (!timestamp) return value;
+      const date = new Date(timestamp);
+      const day = String(date.getDate()).padStart(2, '0');
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const year = date.getFullYear();
+      const hours = String(date.getHours()).padStart(2, '0');
+      const minutes = String(date.getMinutes()).padStart(2, '0');
+      return `${day}/${month}/${year} ${hours}:${minutes}`;
+    }
+
+    function downloadFile(content, filename, type) {
+      const blob = new Blob([content], { type });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = filename;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+    }
+
+    function buildExportTable(title, headers, rows) {
+      const headerHtml = headers.map(header => `<th>${escapeHtml(header)}</th>`).join('');
+      const rowsHtml = rows.length
+        ? rows.map(row => `<tr>${row.map(cell => `<td>${escapeHtml(String(cell ?? ''))}</td>`).join('')}</tr>`).join('')
+        : `<tr><td colspan="${headers.length}">Nenhum registro encontrado</td></tr>`;
+
+      return `
+        <table>
+          <tr><th colspan="${headers.length}" class="section-title">${escapeHtml(title)}</th></tr>
+          <tr>${headerHtml}</tr>
+          ${rowsHtml}
+        </table>
+      `;
+    }
+
+    function exportCsv() {
+      const filteredSales = getFilteredSales();
+      const filteredMovements = getFilteredMovements();
+
+      if (!filteredSales.length && !filteredMovements.length) {
+        alert('Não há dados para exportar com os filtros atuais.');
+        return;
+      }
+
+      const totalSalesValue = filteredSales.reduce((sum, sale) => sum + Number(sale.total || 0), 0);
+      const totalItems = filteredSales.reduce((sum, sale) => sum + Number(sale.qty || 0), 0);
+      const totalReturned = filteredMovements
+        .filter(movement => movement.type === 'devolucao')
+        .reduce((sum, movement) => sum + Number(movement.returnedValue || 0), 0);
+      const netValue = totalSalesValue - totalReturned;
+      const employeeSalesCount = filteredSales.filter(sale => sale.isEmployeeSale).length;
+      const exchangeCount = filteredMovements.filter(movement => movement.type === 'troca').length;
+      const returnCount = filteredMovements.filter(movement => movement.type === 'devolucao').length;
+      const averageTicket = filteredSales.length ? totalSalesValue / filteredSales.length : 0;
+
+      const soldByBook = {};
+      filteredSales.forEach(sale => {
+        soldByBook[sale.bookName] = (soldByBook[sale.bookName] || 0) + Number(sale.qty || 0);
+      });
+      const topBook = Object.entries(soldByBook).sort((a, b) => b[1] - a[1])[0];
+
+      const summaryRows = [
+        ['Período aplicado', reportPeriodEl.value === 'all' ? 'Tudo' : reportPeriodEl.options[reportPeriodEl.selectedIndex].text],
+        ['Total vendido', formatCurrency(totalSalesValue)],
+        ['Valor devolvido', formatCurrency(totalReturned)],
+        ['Saldo líquido', formatCurrency(netValue)],
+        ['Quantidade de vendas', String(filteredSales.length)],
+        ['Itens vendidos', String(totalItems)],
+        ['Vendas para funcionário', String(employeeSalesCount)],
+        ['Trocas', String(exchangeCount)],
+        ['Devoluções', String(returnCount)],
+        ['Ticket médio', formatCurrency(averageTicket)],
+        ['Livro mais vendido', topBook ? `${topBook[0]} (${topBook[1]})` : 'Nenhum']
+      ];
+
+      const salesRows = filteredSales.map((sale, index) => [
+        String(index + 1),
+        sale.bookName || '',
+        String(sale.qty || 0),
+        formatCurrency(sale.total || 0),
+        getEffectivePayment(sale),
+        sale.installments ? `${sale.installments}x` : '',
+        sale.isEmployeeSale ? 'Sim' : 'Não',
+        sale.employeePaymentType || '',
+        sale.buyer || '',
+        formatDateForExport(sale.date || '')
+      ]);
+
+      const movementRows = filteredMovements.map((movement, index) => [
+        String(index + 1),
+        movement.type === 'troca' ? 'Troca' : 'Devolução',
+        movement.originalBookName || '',
+        movement.newBookName || '',
+        String(movement.qty || 0),
+        formatCurrency(movement.returnedValue || 0),
+        movement.buyer || '',
+        movement.originalPayment || '',
+        movement.reason || '',
+        formatDateForExport(movement.date || '')
+      ]);
+
+      const html = `
+        <html xmlns:o="urn:schemas-microsoft-com:office:office"
+              xmlns:x="urn:schemas-microsoft-com:office:excel"
+              xmlns="http://www.w3.org/TR/REC-html40">
+        <head>
+          <meta charset="UTF-8">
+          <style>
+            body { font-family: Arial, sans-serif; }
+            table { border-collapse: collapse; margin-bottom: 24px; width: 100%; }
+            th, td { border: 1px solid #cbd5e1; padding: 8px; text-align: left; white-space: nowrap; }
+            th { background: #e2e8f0; font-weight: 700; }
+            .section-title { background: #2563eb; color: #fff; font-size: 16px; text-align: left; }
+          </style>
+        </head>
+        <body>
+          ${buildExportTable('Resumo', ['Campo', 'Valor'], summaryRows)}
+          ${buildExportTable('Vendas', ['Nº', 'Livro', 'Quantidade', 'Valor total', 'Pagamento', 'Parcelas', 'Venda funcionário', 'Pagamento funcionário', 'Comprador', 'Data'], salesRows)}
+          ${buildExportTable('Trocas e Devoluções', ['Nº', 'Tipo', 'Livro original', 'Novo livro', 'Quantidade', 'Valor devolvido', 'Comprador', 'Pagamento original', 'Motivo', 'Data'], movementRows)}
+        </body>
+        </html>
+      `;
+
+      downloadFile('﻿' + html, 'feira_do_livro_relatorio.xls', 'application/vnd.ms-excel;charset=utf-8;');
+    }
+
+    function updateReportDateFields() {
+      const isCustom = reportPeriodEl.value === 'custom';
+      reportDateStartEl.disabled = !isCustom;
+      reportDateEndEl.disabled = !isCustom;
+      if (!isCustom) {
+        reportDateStartEl.value = '';
+        reportDateEndEl.value = '';
+      }
+    }
+
+    function showView(viewName) {
+      registerViewEl.classList.add('hidden');
+      sellViewEl.classList.add('hidden');
+      exchangeViewEl.classList.add('hidden');
+      summaryViewTopEl.classList.add('hidden');
+      summaryViewBottomEl.classList.add('hidden');
+      summaryViewMovementsEl.classList.add('hidden');
+
+      showRegisterViewBtn.className = 'btn-gray';
+      showSellViewBtn.className = 'btn-gray';
+      showExchangeViewBtn.className = 'btn-gray';
+      showSummaryViewBtn.className = 'btn-gray';
+
+      if (viewName === 'register') {
+        registerViewEl.classList.remove('hidden');
+        showRegisterViewBtn.className = 'btn-primary';
+      } else if (viewName === 'sell') {
+        sellViewEl.classList.remove('hidden');
+        showSellViewBtn.className = 'btn-primary';
+      } else if (viewName === 'exchange') {
+        exchangeViewEl.classList.remove('hidden');
+        showExchangeViewBtn.className = 'btn-primary';
+      } else {
+        summaryViewTopEl.classList.remove('hidden');
+        summaryViewBottomEl.classList.remove('hidden');
+        summaryViewMovementsEl.classList.remove('hidden');
+        showSummaryViewBtn.className = 'btn-primary';
+      }
+    }
+
+    saveBookBtn.addEventListener('click', handleSaveBook);
+    cancelEditBtn.addEventListener('click', clearBookForm);
+    bookSearchEl.addEventListener('input', renderBookList);
+    sellSearchEl.addEventListener('input', renderSellList);
+    movementSearchEl.addEventListener('input', renderMovementSalesList);
+    saleQtyEl.addEventListener('input', renderSelectedBook);
+    salePaymentEl.addEventListener('change', updatePaymentFields);
+    isEmployeeSaleEl.addEventListener('change', updatePaymentFields);
+    movementTypeEl.addEventListener('change', updateMovementFields);
+    reportPeriodEl.addEventListener('change', function () { updateReportDateFields(); renderAll(); });
+    reportDateStartEl.addEventListener('change', renderAll);
+    reportDateEndEl.addEventListener('change', renderAll);
+    salesHistorySearchEl.addEventListener('input', renderAll);
+    registerSaleBtn.addEventListener('click', handleRegisterSale);
+    registerMovementBtn.addEventListener('click', handleRegisterMovement);
+    exportBtn.addEventListener('click', exportCsv);
+
+    showRegisterViewBtn.addEventListener('click', () => showView('register'));
+    showSellViewBtn.addEventListener('click', () => showView('sell'));
+    showExchangeViewBtn.addEventListener('click', () => showView('exchange'));
+    showSummaryViewBtn.addEventListener('click', () => showView('summary'));
+
+    updatePaymentFields();
+    updateMovementFields();
+    updateReportDateFields();
+    showView('register');
+
+    try {
+      await loadData();
+      renderAll();
+      setStatus('Sistema pronto e conectado ao Firebase.', 'ok');
+    } catch (error) {
+      console.error(error);
+      setStatus('Erro ao conectar ou carregar dados do Firebase: ' + (error.message || String(error)), 'error');
+    }
+  </script>
+</body>
+</html>
