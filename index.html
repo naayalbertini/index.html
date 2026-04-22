@@ -436,6 +436,14 @@
         .replace(/'/g, '&#39;');
     }
 
+
+    function normalizarTexto(texto) {
+      return String(texto ?? '')
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[̀-ͯ]/g, '');
+    }
+
     function stockBadge(qty) {
       if (qty <= 0) return '<span class="badge badge-out">Sem estoque</span>';
       if (qty <= 5) return '<span class="badge badge-low">Estoque baixo</span>';
@@ -566,7 +574,7 @@
 
     function getFilteredSales() {
       const period = reportPeriodEl ? reportPeriodEl.value : 'all';
-      const search = salesHistorySearchEl ? salesHistorySearchEl.value.toLowerCase().trim() : '';
+      const search = salesHistorySearchEl ? normalizarTexto(salesHistorySearchEl.value.trim()) : '';
       const now = new Date();
       const startInput = reportDateStartEl && reportDateStartEl.value ? new Date(reportDateStartEl.value + 'T00:00:00').getTime() : null;
       const endInput = reportDateEndEl && reportDateEndEl.value ? new Date(reportDateEndEl.value + 'T23:59:59').getTime() : null;
@@ -586,7 +594,7 @@
         }
         if (!withinPeriod) return false;
         if (!search) return true;
-        const hay = [sale.bookName, sale.buyer, getEffectivePayment(sale), sale.employeePaymentType, sale.date].join(' ').toLowerCase();
+        const hay = normalizarTexto([sale.bookName, sale.buyer, getEffectivePayment(sale), sale.employeePaymentType, sale.date].join(' '));
         return hay.includes(search);
       });
     }
@@ -752,8 +760,8 @@
     }
 
     function renderBookList() {
-      const term = bookSearchEl.value.toLowerCase().trim();
-      const filtered = books.filter(book => book.name.toLowerCase().includes(term) || (book.obs || '').toLowerCase().includes(term));
+      const term = normalizarTexto(bookSearchEl.value.trim());
+      const filtered = books.filter(book => normalizarTexto(book.name).includes(term) || normalizarTexto(book.obs).includes(term));
       if (!filtered.length) {
         bookListEl.innerHTML = '<div class="empty">Nenhum livro cadastrado.</div>';
         return;
@@ -776,8 +784,8 @@
     }
 
     function renderSellList() {
-      const term = sellSearchEl.value.toLowerCase().trim();
-      const filtered = books.filter(book => book.name.toLowerCase().includes(term) || (book.obs || '').toLowerCase().includes(term));
+      const term = normalizarTexto(sellSearchEl.value.trim());
+      const filtered = books.filter(book => normalizarTexto(book.name).includes(term) || normalizarTexto(book.obs).includes(term));
       if (!filtered.length) {
         sellListEl.innerHTML = '<div class="empty">Nenhum livro encontrado.</div>';
         return;
@@ -805,10 +813,10 @@
     }
 
     function renderMovementSalesList() {
-      const term = movementSearchEl.value.toLowerCase().trim();
+      const term = normalizarTexto(movementSearchEl.value.trim());
       const filtered = sales.filter(sale => {
         const availableQty = getSaleAvailableQty(sale);
-        const searchHay = [sale.bookName, sale.buyer || '', getEffectivePayment(sale)].join(' ').toLowerCase();
+        const searchHay = normalizarTexto([sale.bookName, sale.buyer || '', getEffectivePayment(sale)].join(' '));
         return availableQty > 0 && searchHay.includes(term);
       });
       if (!filtered.length) {
