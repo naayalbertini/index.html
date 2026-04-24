@@ -281,6 +281,7 @@
         </div>
         <div class="actions" style="margin-top:12px;">
           <button id="exportBtn" class="btn-gray" type="button">Exportar CSV (Excel)</button>
+          <button id="exportPdfBtn" class="btn-primary" type="button">Exportar PDF (Lista de livros)</button>
         </div>
       </div>
 
@@ -334,6 +335,8 @@
   © Desenvolvido por Nay Cordeiro
 </footer>
 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
   <script type="module">
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js';
     import { getFirestore, collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy } from 'https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js';
@@ -403,6 +406,7 @@
     const newBookSelectEl = document.getElementById('newBookSelect');
     const registerMovementBtn = document.getElementById('registerMovementBtn');
     const exportBtn = document.getElementById('exportBtn');
+    const exportPdfBtn = document.getElementById('exportPdfBtn');
     const showRegisterViewBtn = document.getElementById('showRegisterView');
     const showSellViewBtn = document.getElementById('showSellView');
     const showExchangeViewBtn = document.getElementById('showExchangeView');
@@ -1372,6 +1376,101 @@
       downloadFile('﻿' + html, 'feira_do_livro_relatorio.xls', 'application/vnd.ms-excel;charset=utf-8;');
     }
 
+
+
+    function getNetSoldQtyByBookId(bookId) {
+      const soldQty = sales
+        .filter(sale => sale.bookId === bookId)
+        .reduce((sum, sale) => sum + Number(sale.qty || 0), 0);
+
+      const returnedQty = movements
+        .filter(movement => movement.originalBookId === bookId && movement.type === 'devolucao')
+        .reduce((sum, movement) => sum + Number(movement.qty || 0), 0);
+
+      return Math.max(0, soldQty - returnedQty);
+    }
+
+    function buildBookPdfRows() {
+      return books
+        .slice()
+        .sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'pt-BR'))
+        .map((book, index) => {
+          const estoqueAtual = Number(book.qty || 0);
+          const vendido = getNetSoldQtyByBookId(book.id);
+          const quantidadeOriginal = estoqueAtual + vendido;
+          let statusVenda = 'Não';
+
+          if (vendido > 0) {
+            if (quantidadeOriginal > 1) {
+              statusVenda = 'Sim - ' + vendido + ' vendido(s) de ' + quantidadeOriginal + '. Restante: ' + estoqueAtual;
+            } else {
+              statusVenda = 'Sim - ' + vendido + ' vendido(s)';
+            }
+          }
+
+          return [
+            String(index + 1),
+            book.name || '',
+            formatCurrency(book.price || 0),
+            String(quantidadeOriginal),
+            String(vendido),
+            String(estoqueAtual),
+            statusVenda
+          ];
+        });
+    }
+
+    function exportBooksPdf() {
+      if (!books.length) {
+        alert('Não há livros cadastrados para exportar em PDF.');
+        return;
+      }
+
+      if (!window.jspdf || !window.jspdf.jsPDF) {
+        alert('A biblioteca de PDF não carregou. Verifique sua internet e tente novamente.');
+        return;
+      }
+
+      const { jsPDF } = window.jspdf;
+      const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+      const rows = buildBookPdfRows();
+      const totalOriginal = rows.reduce((sum, row) => sum + Number(row[3] || 0), 0);
+      const totalVendido = rows.reduce((sum, row) => sum + Number(row[4] || 0), 0);
+      const totalRestante = rows.reduce((sum, row) => sum + Number(row[5] || 0), 0);
+
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(15);
+      pdf.text('Feira do Livro - Lista de livros cadastrados', 14, 15);
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(9);
+      pdf.text('Gerado em: ' + new Date().toLocaleString('pt-BR'), 14, 22);
+      pdf.text('Total de títulos: ' + books.length + ' | Quantidade total: ' + totalOriginal + ' | Vendidos: ' + totalVendido + ' | Restantes: ' + totalRestante, 14, 28);
+
+      pdf.autoTable({
+        startY: 34,
+        head: [['Nº', 'Livro', 'Valor', 'Qtd. original', 'Qtd. vendida', 'Qtd. restante', 'Vendido']],
+        body: rows,
+        styles: { fontSize: 8, cellPadding: 2, overflow: 'linebreak', valign: 'top' },
+        headStyles: { fontStyle: 'bold' },
+        columnStyles: {
+          0: { cellWidth: 10 },
+          1: { cellWidth: 105 },
+          2: { cellWidth: 24 },
+          3: { cellWidth: 24 },
+          4: { cellWidth: 24 },
+          5: { cellWidth: 24 },
+          6: { cellWidth: 68 }
+        },
+        didDrawPage: function (data) {
+          const pageNumber = pdf.internal.getCurrentPageInfo().pageNumber;
+          pdf.setFontSize(8);
+          pdf.text('Página ' + pageNumber, data.settings.margin.left, pdf.internal.pageSize.height - 8);
+        }
+      });
+
+      pdf.save('lista_livros_vendidos_e_nao_vendidos.pdf');
+    }
+
     function updateReportDateFields() {
       const isCustom = reportPeriodEl.value === 'custom';
       reportDateStartEl.disabled = !isCustom;
@@ -1432,6 +1531,7 @@
     registerSaleBtn.addEventListener('click', handleRegisterSale);
     registerMovementBtn.addEventListener('click', handleRegisterMovement);
     exportBtn.addEventListener('click', exportCsv);
+    if (exportPdfBtn) exportPdfBtn.addEventListener('click', exportBooksPdf);
 
     showRegisterViewBtn.addEventListener('click', () => showView('register'));
     showSellViewBtn.addEventListener('click', () => showView('sell'));
